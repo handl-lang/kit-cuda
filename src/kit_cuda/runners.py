@@ -79,6 +79,7 @@ persistent buffers.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Iterable
 from typing import Any, Self, cast
 
@@ -98,6 +99,53 @@ __all__ = ["CudaGraphRunner"]
 def _capture_failure_class(exc: BaseException) -> FailureClass:
     """Classify a failed CUDA-graph capture into a ``FailureClass``."""
     return classify(exc)
+
+
+#: Substrings of torch's empty-capture warning — "The CUDA Graph is
+#: empty. This usually means that the graph was attempted to be
+#: captured on wrong device or stream." (aten/src/ATen/cuda/
+#: CUDAGraph.cpp), matched case-insensitively with the older
+#: "CUDA Graph is empty" phrasing covered by the same substrings.
+#: Duplicated from ``kit_torch.executors.base`` rather than imported:
+#: kit-cuda pins kit-torch by released tag, so a new cross-package
+#: helper would not resolve against older pins.
+_EMPTY_GRAPH_WARNING = ("graph is empty", "empty graph")
+
+
+def _empty_capture_warning(
+    ws: list[warnings.WarningMessage],
+) -> warnings.WarningMessage | None:
+    """Return the empty-capture warning in *ws*, when present.
+
+    An empty ``torch.cuda.graph`` records zero kernels — replaying it
+    would serve stale memory while ``stats["cuda_graph"]`` still reads
+    True, so capture treats the warning as a failure (the same raise
+    path every other capture error takes: ``cuda_graph_failure`` +
+    eager fallback) rather than arming a graph that does nothing.
+    """
+    for w in ws:
+        text = str(w.message).lower()
+        if any(p in text for p in _EMPTY_GRAPH_WARNING):
+            return w
+    return None
+
+
+def _reemit_capture_warnings(
+    ws: list[warnings.WarningMessage],
+    skip: warnings.WarningMessage | None,
+) -> None:
+    """Re-emit every recorded warning except *skip*.
+
+    ``warnings.catch_warnings(record=True)`` diverts warnings from
+    stderr into the list; the empty-capture check must not swallow
+    unrelated warnings raised inside the record, so non-triggering
+    ones are re-emitted verbatim after the capture block exits.
+    """
+    for w in ws:
+        if w is not skip:
+            warnings.warn_explicit(
+                w.message, w.category, w.filename, w.lineno
+            )
 
 
 #: Per-position alias predicate: ``(position, capture-time tensor) ->
@@ -296,8 +344,24 @@ class _GraphReplayModule(torch.nn.Module):
             )
             vers = {i: xs[i]._version for i in range(n) if flags[i]}
             g = torch.cuda.CUDAGraph()
-            with torch.no_grad(), torch.cuda.graph(g):
+            with (
+                warnings.catch_warnings(record=True) as ws,
+                torch.no_grad(),
+                torch.cuda.graph(g),
+            ):
                 static_out = module(*call_ins)
+            empty = _empty_capture_warning(ws)
+            _reemit_capture_warnings(ws, empty)
+            if empty is not None:
+                # Zero recorded kernels — the same failure path as any
+                # other capture error: the raise propagates to
+                # ``_capture_generic``/``_DeviceGraphModule._capture``
+                # (``cuda_graph_failure`` + eager), never an armed
+                # no-op graph that would replay stale memory.
+                raise RuntimeError(
+                    "CUDA-graph capture recorded no kernels: "
+                    f"{empty.message}"
+                )
             # A version bump means the RECORDED graph mutates that
             # input's storage in place — replay would write into the
             # caller's live buffer.  Demote to the copy path and
