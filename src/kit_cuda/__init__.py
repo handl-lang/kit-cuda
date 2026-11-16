@@ -1,4 +1,4 @@
-"""mlopt-cuda — the CUDA-graph delivery mechanism (plan 0007).
+"""kit-cuda — the CUDA-graph delivery mechanism (plan 0007).
 
 :class:`CudaGraphRunner` — the :class:`~mlopt_core.ports.Runner`
 that captures a delivered module into a CUDA graph, collapsing a
@@ -14,6 +14,6 @@ points accept ``runner=CudaGraphRunner()`` or a
 compiled-wins precedence lives inside this runner itself.
 """
 
-from mlopt_cuda.runners import CudaGraphRunner
+from kit_cuda.runners import CudaGraphRunner
 
 __all__ = ["CudaGraphRunner"]

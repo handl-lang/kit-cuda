@@ -3,18 +3,130 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mlopt-cuda"
-version = "0.1.0dev"
-description = "CUDA-graph delivery mechanism for mlopt — the CUDA-coupled runner package (plan 0007)"
+name = "kit-cuda"
+version = "0.1.0"
+description = "CUDA-graph delivery runner for the mlopt game — CudaGraphRunner captures a delivered module into a torch.cuda.CUDAGraph. Split from handl-lang/graphopt packages/mlopt-cuda (P3 Step D-1c)."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "mlopt-core",
-    # Phase B: the runner consumes mlopt_torch.device (DevicePolicy,
-    # device_graph_key) — the import-linter `dependency layers`
-    # contract already places mlopt_cuda above mlopt_torch.
+    # The runner consumes mlopt_torch.device (device_graph_key,
+    # storage_fingerprint) and mlopt_torch.device_placement
+    # (ShardedAwareDevicePolicy) — the CUDA mechanism sits above the
+    # torch package by contract.
     "mlopt-torch",
     "torch>=2.0",
 ]
 
+[dependency-groups]
+dev = [
+    # mlopt-torch is a runtime dep resolved by the *consumer's*
+    # [tool.uv.sources] (workspace member in graphopt, git subdir pin in
+    # mlopt/kernelopt) — dep sources are honored transitively and no
+    # single pin fits all consumers, so this repo's own dev env binds it
+    # here as a direct git dep instead of a [tool.uv.sources] entry
+    # (the kit-carriers dep-source lesson).
+    "mlopt-torch @ git+https://github.com/handl-lang/graphopt.git@v0.1.15#subdirectory=packages/mlopt-torch",
+    # test_runners.py exercises the runner through the orchestrator's
+    # Runner protocol / Optimizer — already a transitive dep of
+    # mlopt-torch; declared here so the test imports are explicit.
+    "mlopt-orchestrator",
+    "pytest>=7.0",
+    "ruff>=0.6",
+    "coverage>=7.0",
+    "ty==0.0.84",
+    "import-linter>=2.15",
+]
+
+# Substrate pins for local dev — consumers that git-pin `kit-cuda`
+# resolve `mlopt-*` through their own `[tool.uv.sources]` (uv honours
+# sources only at the workspace root).  mlopt-torch deliberately has
+# NO source entry here — see the dev-group note above.
+[tool.uv.sources]
+mlopt-core = { git = "https://github.com/handl-lang/eqsat.git", subdirectory = "packages/mlopt-core", tag = "v0.1.9" }
+mlopt-orchestrator = { git = "https://github.com/handl-lang/eqsat.git", subdirectory = "packages/mlopt-orchestrator", tag = "v0.1.9" }
+mlopt-dtypes = { git = "https://github.com/handl-lang/eqsat.git", subdirectory = "packages/mlopt-dtypes", tag = "v0.1.9" }
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "requires_cuda: test allocates CUDA tensors; skipped at setup when CUDA is absent or OOMs on a probe allocation",
+    "slow: minutes-scale test; iterate with -m \"not slow\", run the full suite before committing",
+    "e2e: crosses an external engine boundary (torch.compile/Inductor, CUDA-graph capture); module-level marker, tagged on boundary-purpose files only",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 72
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "D"]
+ignore = [
+    "E501",     # line length — math/notation lines exceed 72 legitimately
+    "B008",     # function-call in default arg — used for cost-fn defaults
+    "SIM108",   # ternary suggestion — if/else often clearer here
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+# --- typecheck (ty) -----------------------------------------------
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.src]
+include = ["src"]
+exclude = []
+
+[tool.ty.terminal]
+error-on-warning = false
+
+[tool.coverage.run]
+source = ["kit_cuda"]
+branch = true
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+# Phase-1 measurement (P3 Step D-1c): 99% total branch coverage over
+# the package-bound suite on a CUDA-capable host — the single miss is
+# runners.py:320 (a defensive branch); the CUDA-gated paths get their
+# heavy exercise through graphopt's suite via the git dep.  Floor set
+# at the measurement; tighten, never lower (ratchet convention, same
+# as kit-onnx/kit-carriers).
+fail_under = 99
+show_missing = true
+exclude_also = [
+    "if __name__ == ['\"]__main__['\"]:",
+    "if TYPE_CHECKING:",
+    "def __repr__",
+    "raise NotImplementedError",
+    "@overload",
+    "return NotImplemented",
+]
+
+# import-linter: kit_cuda sits at the TOP of the torch stack — it may
+# bind mlopt_core / mlopt_torch / torch, and nothing above it.  The
+# orchestrator is reached only duck-typed (the Runner protocol), the
+# game layer and every sibling backend are forbidden outright.
+# include_external_packages makes the third-party binds visible.
+[tool.importlinter]
+root_packages = ["kit_cuda"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "kit_cuda is the cuda top — no orchestrator, no game layer, no sibling backends"
+type = "forbidden"
+source_modules = ["kit_cuda"]
+forbidden_modules = [
+    "mlopt_orchestrator",
+    "gamekit",
+    "benchkit",
+    "discoverykit",
+    "mlopt_discovery",
+    "mlopt_host_tensor",
+    "kit_carriers",
+    "kit_onnx",
+]
