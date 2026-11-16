@@ -550,6 +550,41 @@ def test_graph_replay_recapture_failure_recorded(monkeypatch):
     assert "capture broke" in (mod.recapture_error or "")
 
 
+def test_graph_replay_forward_fallbacks(monkeypatch):
+    """``forward``'s honest fallbacks: an arity/signature mismatch and
+    a FAILED recapture both serve ``inner`` eagerly — never a stale
+    or absent graph replay."""
+
+    class _Var(nn.Module):
+        def forward(self, *xs: torch.Tensor) -> torch.Tensor:
+            return xs[0]
+
+    x = torch.randn(2, 4)
+    inner = _Var().eval()
+    mod = _GraphReplayModule(inner, None, [x], None)
+    # arity mismatch → _matches False → eager inner, untouched state
+    y = torch.randn(2, 4)
+    with torch.no_grad():
+        assert torch.equal(mod(x, y), x)
+    assert mod.recapture_count == 0
+
+    # storage rebind + capture failure → eager-forever path in forward
+    inner2 = nn.Linear(4, 4).eval()
+    mod2 = _GraphReplayModule(inner2, None, [x], None)
+    mod2.inner.weight = nn.Parameter(torch.randn(4, 4))  # unstable
+
+    def boom(*a, **kw):
+        raise RuntimeError("capture broke")
+
+    monkeypatch.setattr(
+        _GraphReplayModule, "capture", classmethod(lambda cls, *a, **kw: boom())
+    )
+    with torch.no_grad():
+        assert torch.allclose(mod2(x), inner2(x))
+    assert mod2._eager_forever is True
+    assert "capture broke" in (mod2.recapture_error or "")
+
+
 @pytest.mark.requires_cuda
 def test_graph_replay_recaptures_on_param_rebind():
     """The t5 fuse+graph wall: ``_park_params``/``_align_to`` rebinds
