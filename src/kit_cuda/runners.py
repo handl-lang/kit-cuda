@@ -184,6 +184,24 @@ class _GraphReplayModule(torch.nn.Module):
     reads its live storage).  ``_alias`` marks which is which.
     Consumers iterating ``_graph_ins`` must NOT ``copy_`` into alias
     entries: that would write into the caller's tensor.
+
+    Storage safety (the ``_DeviceGraphModule`` contract, single-shot):
+    a captured graph holds raw pointers to every storage its kernels
+    read — the wrapped module's parameters above all — and does NOT
+    keep them alive.  ``IRModule._park_params`` (the low-memory
+    ``verify_module`` dance) drops the live weight tables to CPU,
+    freeing exactly those storages; a sibling module's forward can
+    then reuse the memory and replay reads garbage — measured as a
+    scatter/gather device-side assert on ``arch:t5-small``
+    (``fuse+graph``).  ``_param_snap`` is the
+    :func:`mlopt_torch.device.storage_fingerprint` taken at capture:
+    holding the untyped storages keeps the captured memory alive,
+    and comparing it before every replay catches every real rebind
+    (``.to()``, ``_align_to``, ``load_state_dict``-adjacent moves).
+    A mismatch lazily RECAPTURES against the current storage — the
+    same drop-and-recapture ``_DeviceGraphModule`` performs per key —
+    and a failed recapture serves the wrapped module's eager forward
+    (recorded, never silent).
     """
 
     def __init__(
@@ -193,6 +211,10 @@ class _GraphReplayModule(torch.nn.Module):
         static_ins: list[torch.Tensor],
         static_out: Any,
         alias: tuple[bool, ...] | None = None,
+        *,
+        warmup: int = 3,
+        alias_pred: AliasPredicate | None = None,
+        mutable_pred: AliasPredicate | None = None,
     ) -> None:
         super().__init__()
         self.inner = inner
@@ -202,6 +224,15 @@ class _GraphReplayModule(torch.nn.Module):
         self._alias = (
             alias if alias is not None else (False,) * len(static_ins)
         )
+        # Recapture context + the storage-liveness snapshot — see the
+        # class docstring's storage-safety note.
+        self._warmup = warmup
+        self._alias_pred = alias_pred
+        self._mutable_pred = mutable_pred
+        self._param_snap = storage_fingerprint(inner)
+        self.recapture_count = 0
+        self.recapture_error: str | None = None
+        self._eager_forever = False
 
     @classmethod
     def capture(  # pragma: no cover — CUDA-only body
@@ -295,6 +326,9 @@ class _GraphReplayModule(torch.nn.Module):
             cast(list[torch.Tensor], graph_ins),
             static_out,
             tuple(flags),
+            warmup=warmup,
+            alias_pred=alias,
+            mutable_pred=mutable,
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -332,9 +366,50 @@ class _GraphReplayModule(torch.nn.Module):
                 return False
         return True
 
+    def _params_stable(self) -> bool:
+        """Return True while the captured storages ARE the live ones."""
+        cur = storage_fingerprint(self.inner)
+        snap = self._param_snap
+        return len(cur) == len(snap) and all(
+            a is b for a, b in zip(cur, snap, strict=True)
+        )
+
+    def _recapture(self, xs: tuple[Any, ...]) -> bool:
+        """Re-record against the current storages; ``False`` on failure.
+
+        Mirrors ``_DeviceGraphModule``'s drop-and-recapture: a failed
+        recapture marks the wrapper eager-forever (recorded on
+        ``recapture_error``) rather than retrying — and never
+        replaying — a stale graph.
+        """
+        try:
+            new = type(self).capture(
+                self.inner,
+                xs,
+                warmup=self._warmup,
+                alias=self._alias_pred,
+                mutable=self._mutable_pred,
+            )
+        except Exception as exc:
+            self._eager_forever = True
+            self.recapture_error = f"{type(exc).__name__}: {exc}"
+            return False
+        self._graph = new._graph
+        self._graph_ins = new._graph_ins
+        self._graph_out = new._graph_out
+        self._alias = new._alias
+        self._param_snap = new._param_snap
+        self.recapture_count += 1
+        self.recapture_error = None
+        return True
+
     def forward(self, *xs: Any) -> Any:
         """Replay the captured graph, or fall back to eager on mismatch."""
         if not self._matches(xs):
+            return self.inner(*xs)
+        if self._eager_forever:
+            return self.inner(*xs)
+        if not self._params_stable() and not self._recapture(xs):
             return self.inner(*xs)
         for i, (buf, t) in enumerate(
             zip(self._graph_ins, xs, strict=True)

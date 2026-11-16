@@ -501,6 +501,99 @@ def test_cuda_graph_runner_multi_device_replays_and_keys():
     assert wrapped.capture_failures == {}
 
 
+def test_graph_replay_params_stable_detects_rebind():
+    """``_GraphReplayModule._params_stable`` is the single-capture
+    analogue of ``_DeviceGraphModule._params_match``: stable until a
+    real storage move, catching ``_param_map``-style rebinding that
+    leaves the registered Parameters untouched."""
+    mod = _GraphReplayModule(nn.Linear(4, 4), None, [], None)
+    assert mod._params_stable()
+    assert mod._param_snap  # the snapshot exists and holds storages
+    # a fresh Parameter = a fresh storage → unstable
+    mod.inner.weight = nn.Parameter(torch.randn(4, 4))
+    assert not mod._params_stable()
+    # an in-place copy_ keeps the storage → still stable
+    mod2 = _GraphReplayModule(nn.Linear(4, 4), None, [], None)
+    with torch.no_grad():
+        mod2.inner.weight.copy_(torch.randn(4, 4))
+    assert mod2._params_stable()
+
+
+def test_graph_replay_eager_forever_serves_inner():
+    """A failed recapture marks the wrapper eager-forever: forward
+    delegates to ``inner`` (recorded on ``recapture_error``) instead
+    of retrying — or worse, replaying — a stale graph."""
+    x = torch.randn(2, 4)
+    inner = nn.Linear(4, 4).eval()
+    mod = _GraphReplayModule(inner, None, [x], None)
+    mod._eager_forever = True
+    mod.recapture_error = "RuntimeError: boom"
+    with torch.no_grad():
+        assert torch.allclose(mod(x), inner(x))
+
+
+def test_graph_replay_recapture_failure_recorded(monkeypatch):
+    """``_recapture`` adopts the fresh wrapper's graph state on
+    success; on capture failure it flags eager-forever with the
+    classified reason — never an exception into the caller's forward.
+    """
+    x = torch.randn(2, 4)
+    inner = nn.Linear(4, 4).eval()
+    mod = _GraphReplayModule(inner, None, [x], None)
+
+    def boom(*a, **kw):
+        raise RuntimeError("capture broke")
+
+    monkeypatch.setattr(_GraphReplayModule, "capture", classmethod(lambda cls, *a, **kw: boom()))
+    assert mod._recapture((x,)) is False
+    assert mod._eager_forever is True
+    assert "capture broke" in (mod.recapture_error or "")
+
+
+@pytest.mark.requires_cuda
+def test_graph_replay_recaptures_on_param_rebind():
+    """The t5 fuse+graph wall: ``_park_params``/``_align_to`` rebinds
+    the live weight tables to fresh storages — the captured graph's
+    pointers go stale.  The wrapper must recapture against the new
+    storage (never replay freed memory) and still answer correctly."""
+    from mlopt_core.ir import IR, Op, Param, TensorType, Var
+    from mlopt_torch.torch_bridge import ir_to_torch_module
+
+    torch.manual_seed(0)
+    x = Var("x", TensorType((4, 8)))
+    w = Param(name="p_w", typ=TensorType((8, 8)))
+    ir = IR(
+        root=Op.make("matmul", x, w),
+        inputs=[x],
+        input_names=["x"],
+        params={"p_w": TensorType((8, 8))},
+    )
+    mod = ir_to_torch_module(
+        ir, {"p_w": torch.randn(8, 8, device="cuda")}
+    ).eval()
+    stats: dict = {}
+    wrapped = CudaGraphRunner().apply(
+        mod, torch.randn(4, 8, device="cuda"), stats
+    )
+    assert stats["cuda_graph"] is True
+    xin = torch.randn(4, 8, device="cuda")
+    with torch.no_grad():
+        assert torch.allclose(wrapped(xin), mod(xin))
+    # Rebind the live table the way ``_align_to`` does after a park —
+    # fresh storage, same values: the graph must recapture, not replay
+    # the stale pointers.
+    old = mod._param_map["p_w"]
+    mod._param_map["p_w"] = torch.nn.Parameter(
+        old.detach().clone()
+    )
+    x2 = torch.randn(4, 8, device="cuda")
+    with torch.no_grad():
+        out = wrapped(x2)
+        assert torch.allclose(out, mod(x2))
+    assert wrapped.recapture_count == 1
+    assert wrapped._params_stable()
+
+
 @pytest.mark.requires_cuda
 def test_device_graph_module_drops_stale_graph_on_param_move():
     """Rebinding a param (the ``_align_to`` move shape) invalidates the
