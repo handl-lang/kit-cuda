@@ -12,7 +12,7 @@ the only piece of the pipeline that is *device*-coupled, not merely
 torch-coupled, so it is separately installable.
 
 It sits at the **top** of the torch stack: it depends on
-`mlopt-core` + `mlopt-torch` (handl-lang/eqsat + handl-lang/graphopt)
+`mlopt-core` + `kit-torch` (handl-lang/eqsat + handl-lang/graphopt)
 and `torch` — never on `mlopt_orchestrator` (the `Runner` protocol is
 duck-typed), the game layer, or any sibling backend.
 
@@ -29,10 +29,10 @@ kit-cuda = { git = "https://github.com/handl-lang/kit-cuda.git", tag = "v0.1.0" 
 ```
 
 Substrate pins (`mlopt-core`, `mlopt-orchestrator`, `mlopt-dtypes`)
-resolve from `handl-lang/eqsat`; `mlopt-torch` resolves through the
+resolve from `handl-lang/eqsat`; `kit-torch` resolves through the
 consumer's own `[tool.uv.sources]` (graphopt workspace member or git
 subdir pin) — dep sources are honored transitively, so this repo
-deliberately carries no `mlopt-torch` source entry.
+deliberately carries no `kit-torch` source entry.
 
 ## Verify
 

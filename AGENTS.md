@@ -7,7 +7,7 @@ their own `capture_cuda_graph`, generic `IRModule` tapes via static
 input buffers).  Split from `handl-lang/graphopt`
 `packages/mlopt-cuda` in P3 Step D-1c (the third package of the
 graphopt domain-package dissolution; the `mlopt-*` → `kit-*` rename).
-Python 3.13, torch + `mlopt-core`/`mlopt-torch` on the eqsat/graphopt
+Python 3.13, torch + `mlopt-core`/`kit-torch` on the eqsat/graphopt
 substrate.
 
 ## Layout
@@ -19,7 +19,7 @@ substrate.
   - `__init__.py` — re-exports `CudaGraphRunner`.
 - `tests/` — the package-bound suite (`test_runners.py`, carved out
   of graphopt's `tests/` — every import stays inside this package's
-  dep closure: `kit_cuda` + `mlopt_core`/`mlopt_torch`/
+  dep closure: `kit_cuda` + `mlopt_core`/`kit_torch`/
   `mlopt_orchestrator` + torch).  Cross-stack tests (anything touching
   `kit_discovery`, `kit_carriers`, `kit_onnx`,
   `kit_host_tensor`/`mlopt_host_tensor`, gamekit, benchkit) stayed in
@@ -28,18 +28,18 @@ substrate.
 ## Contracts
 
 - **Top of the torch stack** — not a leaf: the runner consumes
-  `mlopt_torch.device` (`device_graph_key`, `storage_fingerprint`)
-  and `mlopt_torch.device_placement` (`ShardedAwareDevicePolicy`).
+  `kit_torch.device` (`device_graph_key`, `storage_fingerprint`)
+  and `kit_torch.device_placement` (`ShardedAwareDevicePolicy`).
   It never imports `mlopt_orchestrator` — the `Runner` protocol is
   duck-typed (`apply(module, example_input, stats)`); the
   import-linter `forbidden` contract enforces the upward edges
   (orchestrator, gamekit/benchkit/discoverykit, `kit_discovery`,
   `kit_host_tensor`/`mlopt_host_tensor`, `kit_carriers`, `kit_onnx`).
 - Substrate deps: `mlopt-core` (handl-lang/eqsat,
-  `packages/mlopt-core` subdir, tag-pinned); `mlopt-torch`
-  (handl-lang/graphopt, `packages/mlopt-torch` subdir, resolved by
+  `packages/mlopt-core` subdir, tag-pinned); `kit-torch`
+  (handl-lang/graphopt, `packages/kit-torch` subdir, resolved by
   the *consumer's* `[tool.uv.sources]` — this repo deliberately has
-  no `mlopt-torch` source entry; its own dev env binds it via a
+  no `kit-torch` source entry; its own dev env binds it via a
   dev-group direct-URL, the kit-carriers dep-source lesson).
 - `requires_cuda` tests skip cleanly at setup when CUDA is absent or
   OOMs on a probe allocation (shared `tests/conftest.py`).

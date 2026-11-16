@@ -42,11 +42,11 @@ slices here:
   ``stats["cuda_graph_per_device"]`` marking the mode.  Batched
   executors keep their own single-device ``capture_cuda_graph`` —
   the flag does not reach them.
-* ``apply`` runs :class:`mlopt_torch.device_placement.ShardedAwareDevicePolicy`'s
-  :meth:`~mlopt_torch.device.DevicePolicy.check_module` first: DDP /
+* ``apply`` runs :class:`kit_torch.device_placement.ShardedAwareDevicePolicy`'s
+  :meth:`~kit_torch.device.DevicePolicy.check_module` first: DDP /
   FSDP / TP-wrapped modules, DTensor/``FlatParameter`` shard leaves,
   and modules binding collective ops raise
-  :class:`~mlopt_torch.device.UnsupportedDistributedError` (shard
+  :class:`~kit_torch.device.UnsupportedDistributedError` (shard
   leaves raise the ``ShardedParamError`` subclass) — an explicit
   refusal, never a silently wrong single-rank replay.
 
@@ -84,11 +84,11 @@ from typing import Any, Self, cast
 
 import torch
 from mlopt_core.failures import FailureClass, classify
-from mlopt_torch.device import (
+from kit_torch.device import (
     device_graph_key,
     storage_fingerprint,
 )
-from mlopt_torch.device_placement import (
+from kit_torch.device_placement import (
     ShardedAwareDevicePolicy as DevicePolicy,
 )
 
@@ -194,7 +194,7 @@ class _GraphReplayModule(torch.nn.Module):
     then reuse the memory and replay reads garbage — measured as a
     scatter/gather device-side assert on ``arch:t5-small``
     (``fuse+graph``).  ``_param_snap`` is the
-    :func:`mlopt_torch.device.storage_fingerprint` taken at capture:
+    :func:`kit_torch.device.storage_fingerprint` taken at capture:
     holding the untyped storages keeps the captured memory alive,
     and comparing it before every replay catches every real rebind
     (``.to()``, ``_align_to``, ``load_state_dict``-adjacent moves).
@@ -431,7 +431,7 @@ class _DeviceGraphModule(torch.nn.Module):
     already refuses foreign-device calls — but it has no way to serve
     a *second* device.  This wrapper keys captures by
     ``(device_index, shape/dtype signature)`` from
-    :func:`mlopt_torch.device.device_graph_key`: each device+signature
+    :func:`kit_torch.device.device_graph_key`: each device+signature
     pair gets its own :class:`_GraphReplayModule`, captured lazily on
     first use inside ``torch.cuda.device(idx)``.  A graph is NEVER
     shared across devices.
@@ -441,7 +441,7 @@ class _DeviceGraphModule(torch.nn.Module):
     moves or rebinds its parameters (``Module.to`` swaps ``.data``;
     ``IRModule._align_to`` materialises fresh tensors on a device
     switch) would leave the graph replaying freed storage.
-    :func:`mlopt_torch.device.storage_fingerprint` snapshots the
+    :func:`kit_torch.device.storage_fingerprint` snapshots the
     untyped storages — holding them keeps the captured memory alive
     AND detects every real move, since neither ``.to()`` nor
     ``_align_to`` preserves storage identity.  Before every replay the

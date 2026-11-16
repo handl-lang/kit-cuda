@@ -37,12 +37,12 @@ import pytest
 import torch
 
 # Several runner tests exercise the concrete-eval backend without
-# importing ``mlopt_torch.torch_bridge`` themselves — under the full
+# importing ``kit_torch.torch_bridge`` themselves — under the full
 # suite a sibling test module's top-level import registers it at
 # collection time, but a subset run would see "no concrete-eval
 # backend registered".  Register eagerly here so subsets behave like
 # the full suite.
-import mlopt_torch.torch_bridge  # noqa: F401
+import kit_torch.torch_bridge  # noqa: F401
 
 # --- mutmut sandbox ------------------------------------------------
 # uv's PEP-660 editable install registers a single ``__editable__*``

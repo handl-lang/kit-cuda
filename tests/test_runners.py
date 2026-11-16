@@ -26,15 +26,15 @@ from kit_cuda.runners import (
     _GraphReplayModule,
 )
 from mlopt_core.failures import FailureClass
-from mlopt_torch.device import UnsupportedDistributedError
-from mlopt_torch.runners import TorchCompileRunner
+from kit_torch.device import UnsupportedDistributedError
+from kit_torch.runners import TorchCompileRunner
 
-from mlopt_torch.adapters import TorchSink
+from kit_torch.adapters import TorchSink
 from mlopt_orchestrator.optimize import Autotuned
 from mlopt_orchestrator import Optimizer
 
-from mlopt_torch.autotune import TORCH_BUILDERS
-from mlopt_torch.backend import TorchBackend
+from kit_torch.autotune import TORCH_BUILDERS
+from kit_torch.backend import TorchBackend
 
 
 class _MLP(nn.Module):
@@ -246,7 +246,7 @@ def test_cuda_graph_runner_captures_generic_irmodule():
     equals eager on fresh inputs, a shape mismatch falls back, and
     introspection attrs delegate to the wrapped module."""
     from mlopt_core.ir import IR, Op, Param, TensorType, Var
-    from mlopt_torch.torch_bridge import ir_to_torch_module
+    from kit_torch.torch_bridge import ir_to_torch_module
 
     torch.manual_seed(0)
     x = Var("x", TensorType((4, 8)))
@@ -467,7 +467,7 @@ def test_cuda_graph_runner_multi_device_replays_and_keys():
     a second signature captures its own graph — never shared — and a
     shape mismatch falls back to eager inside the entry."""
     from mlopt_core.ir import IR, Op, Param, TensorType, Var
-    from mlopt_torch.torch_bridge import ir_to_torch_module
+    from kit_torch.torch_bridge import ir_to_torch_module
 
     torch.manual_seed(0)
     x = Var("x", TensorType((4, 8)))
@@ -592,7 +592,7 @@ def test_graph_replay_recaptures_on_param_rebind():
     pointers go stale.  The wrapper must recapture against the new
     storage (never replay freed memory) and still answer correctly."""
     from mlopt_core.ir import IR, Op, Param, TensorType, Var
-    from mlopt_torch.torch_bridge import ir_to_torch_module
+    from kit_torch.torch_bridge import ir_to_torch_module
 
     torch.manual_seed(0)
     x = Var("x", TensorType((4, 8)))
@@ -635,7 +635,7 @@ def test_device_graph_module_drops_stale_graph_on_param_move():
     captured graph — the wrapper drops it and recaptures against the
     new storage instead of replaying freed pointers."""
     from mlopt_core.ir import IR, Op, Param, TensorType, Var
-    from mlopt_torch.torch_bridge import ir_to_torch_module
+    from kit_torch.torch_bridge import ir_to_torch_module
 
     torch.manual_seed(0)
     x = Var("x", TensorType((4, 8)))

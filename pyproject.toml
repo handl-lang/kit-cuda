@@ -10,26 +10,25 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "mlopt-core",
-    # The runner consumes mlopt_torch.device (device_graph_key,
-    # storage_fingerprint) and mlopt_torch.device_placement
+    # The runner consumes kit_torch.device (device_graph_key,
+    # storage_fingerprint) and kit_torch.device_placement
     # (ShardedAwareDevicePolicy) — the CUDA mechanism sits above the
     # torch package by contract.
-    "mlopt-torch",
+    "kit-torch",
     "torch>=2.0",
 ]
 
 [dependency-groups]
 dev = [
-    # mlopt-torch is a runtime dep resolved by the *consumer's*
-    # [tool.uv.sources] (workspace member in graphopt, git subdir pin in
-    # mlopt/kernelopt) — dep sources are honored transitively and no
+    # kit-torch is a runtime dep resolved by the *consumer's*
+    # [tool.uv.sources] — dep sources are honored transitively and no
     # single pin fits all consumers, so this repo's own dev env binds it
     # here as a direct git dep instead of a [tool.uv.sources] entry
     # (the kit-carriers dep-source lesson).
-    "mlopt-torch @ git+https://github.com/handl-lang/graphopt.git@v0.1.21#subdirectory=packages/mlopt-torch",
+    "kit-torch @ git+https://github.com/handl-lang/kit-torch.git@v0.1.0",
     # test_runners.py exercises the runner through the orchestrator's
     # Runner protocol / Optimizer — already a transitive dep of
-    # mlopt-torch; declared here so the test imports are explicit.
+    # kit-torch; declared here so the test imports are explicit.
     "mlopt-orchestrator",
     "pytest>=7.0",
     "ruff>=0.6",
@@ -40,7 +39,7 @@ dev = [
 
 # Substrate pins for local dev — consumers that git-pin `kit-cuda`
 # resolve `mlopt-*` through their own `[tool.uv.sources]` (uv honours
-# sources only at the workspace root).  mlopt-torch deliberately has
+# sources only at the workspace root).  kit-torch deliberately has
 # NO source entry here — see the dev-group note above.
 [tool.uv.sources]
 mlopt-core = { git = "https://github.com/handl-lang/eqsat.git", subdirectory = "packages/mlopt-core", tag = "v0.1.10" }
@@ -108,7 +107,7 @@ exclude_also = [
 ]
 
 # import-linter: kit_cuda sits at the TOP of the torch stack — it may
-# bind mlopt_core / mlopt_torch / torch, and nothing above it.  The
+# bind mlopt_core / kit_torch / torch, and nothing above it.  The
 # orchestrator is reached only duck-typed (the Runner protocol), the
 # game layer and every sibling backend are forbidden outright.
 # include_external_packages makes the third-party binds visible.
