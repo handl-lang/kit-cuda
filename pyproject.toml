@@ -125,7 +125,7 @@ forbidden_modules = [
     "gamekit",
     "benchkit",
     "discoverykit",
-    "mlopt_discovery",
+    "kit_discovery",
     "mlopt_host_tensor",
     "kit_carriers",
     "kit_onnx",

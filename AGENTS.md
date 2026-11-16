@@ -21,7 +21,7 @@ substrate.
   of graphopt's `tests/` — every import stays inside this package's
   dep closure: `kit_cuda` + `mlopt_core`/`mlopt_torch`/
   `mlopt_orchestrator` + torch).  Cross-stack tests (anything touching
-  `mlopt_discovery`, `kit_carriers`, `kit_onnx`, `mlopt_host_tensor`,
+  `kit_discovery`, `kit_carriers`, `kit_onnx`, `mlopt_host_tensor`,
   gamekit, benchkit) stayed in graphopt and import `kit_cuda` as a git
   dep.
 
@@ -33,7 +33,7 @@ substrate.
   It never imports `mlopt_orchestrator` — the `Runner` protocol is
   duck-typed (`apply(module, example_input, stats)`); the
   import-linter `forbidden` contract enforces the upward edges
-  (orchestrator, gamekit/benchkit/discoverykit, `mlopt_discovery`,
+  (orchestrator, gamekit/benchkit/discoverykit, `kit_discovery`,
   `mlopt_host_tensor`, `kit_carriers`, `kit_onnx`).
 - Substrate deps: `mlopt-core` (handl-lang/eqsat,
   `packages/mlopt-core` subdir, tag-pinned); `mlopt-torch`
