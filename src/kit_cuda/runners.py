@@ -83,7 +83,6 @@ from collections.abc import Callable, Iterable
 from typing import Any, Self, cast
 
 import torch
-from mlopt_core.failures import FailureClass, classify
 from kit_torch.device import (
     device_graph_key,
     storage_fingerprint,
@@ -91,6 +90,7 @@ from kit_torch.device import (
 from kit_torch.device_placement import (
     ShardedAwareDevicePolicy as DevicePolicy,
 )
+from mlopt_core.failures import FailureClass, classify
 
 __all__ = ["CudaGraphRunner"]
 
