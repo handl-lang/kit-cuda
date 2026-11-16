@@ -687,8 +687,10 @@ class CudaGraphRunner:
 
     Compiled delivery wins: when ``stats["compiled"]`` is set the
     module is already a dynamo wrapper (which also fuses launches),
-    so capture is skipped entirely — ``stats["cuda_graph"]`` stays
-    unset, matching the historical flag behaviour.
+    so capture is skipped entirely — ``stats["cuda_graph"]`` is set
+    False and ``stats["cuda_graph_skipped"]`` records the reason, so
+    a ``compile+graph`` config's stats can never read as an armed
+    graph.
 
     ``multi_device=True`` (Phase B) routes the generic path through
     :class:`_DeviceGraphModule` — a lazy per-(device, signature)
@@ -758,6 +760,14 @@ class CudaGraphRunner:
         # early-out so no delivery path slips past it.
         self._policy.check_module(module)
         if stats.get("compiled"):
+            # Compiled delivery wins — no capture is attempted, and
+            # the stats say so explicitly: ``cuda_graph`` is False
+            # (never armed) and ``cuda_graph_skipped`` names why, so a
+            # ``compile+graph`` config can't read as graph-delivered.
+            stats["cuda_graph"] = False
+            stats["cuda_graph_skipped"] = (
+                "inner runner already compiled"
+            )
             return module
         stats["cuda_graph"] = False
         xs = (

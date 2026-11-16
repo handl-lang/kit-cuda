@@ -201,13 +201,15 @@ def test_cuda_graph_runner_tuple_and_nontensor_inputs():
 
 def test_cuda_graph_runner_skips_when_compiled():
     """The 'compiled wins' precedence lives inside the runner: a
-    successful compile earlier in the chain leaves cuda_graph unset
-    and capture unattempted."""
+    successful compile earlier in the chain skips capture — and the
+    stats say so explicitly (``cuda_graph`` False + a skip reason),
+    so a compile+graph config can't read as graph-delivered."""
     mod = _Capturable()
     stats: dict = {"compiled": True}
     out = CudaGraphRunner().apply(mod, torch.randn(2, 4), stats)
     assert out is mod
-    assert "cuda_graph" not in stats
+    assert stats["cuda_graph"] is False
+    assert stats["cuda_graph_skipped"] == "inner runner already compiled"
     assert not mod.captured
 
 
@@ -1068,6 +1070,10 @@ def test_explicit_chained_runner():
 
     assert stats["runner"] == ["torch_compile", "cuda_graph"]
     assert stats["compiled"] is True
+    # Compiled wins inside the chain — cuda_graph records the skip
+    # explicitly rather than leaving the armed/not-armed question open.
+    assert stats["cuda_graph"] is False
+    assert stats["cuda_graph_skipped"] == "inner runner already compiled"
 
 
 def test_runner_without_name_records_class_name():
