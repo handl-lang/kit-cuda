@@ -25,7 +25,7 @@ dev = [
     # single pin fits all consumers, so this repo's own dev env binds it
     # here as a direct git dep instead of a [tool.uv.sources] entry
     # (the kit-carriers dep-source lesson).
-    "kit-torch @ git+https://github.com/handl-lang/kit-torch.git@v0.1.0",
+    "kit-torch @ git+https://github.com/handl-lang/kit-torch.git@v0.1.1",
     # test_runners.py exercises the runner through the orchestrator's
     # Runner protocol / Optimizer — already a transitive dep of
     # kit-torch; declared here so the test imports are explicit.

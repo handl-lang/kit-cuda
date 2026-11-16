@@ -385,8 +385,8 @@ name = "kit-cuda"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "kit-torch" },
     { name = "mlopt-core" },
-    { name = "mlopt-torch" },
     { name = "torch" },
 ]
 
@@ -394,8 +394,8 @@ dependencies = [
 dev = [
     { name = "coverage" },
     { name = "import-linter" },
+    { name = "kit-torch" },
     { name = "mlopt-orchestrator" },
-    { name = "mlopt-torch" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
@@ -403,8 +403,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "kit-torch" },
     { name = "mlopt-core", git = "https://github.com/handl-lang/eqsat.git?subdirectory=packages%2Fmlopt-core&tag=v0.1.10" },
-    { name = "mlopt-torch" },
     { name = "torch", specifier = ">=2.0" },
 ]
 
@@ -412,11 +412,24 @@ requires-dist = [
 dev = [
     { name = "coverage", specifier = ">=7.0" },
     { name = "import-linter", specifier = ">=2.15" },
+    { name = "kit-torch", git = "https://github.com/handl-lang/kit-torch.git?rev=v0.1.1" },
     { name = "mlopt-orchestrator", git = "https://github.com/handl-lang/eqsat.git?subdirectory=packages%2Fmlopt-orchestrator&tag=v0.1.10" },
-    { name = "mlopt-torch", git = "https://github.com/handl-lang/graphopt.git?subdirectory=packages%2Fmlopt-torch&rev=v0.1.21" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "ty", specifier = "==0.0.84" },
+]
+
+[[package]]
+name = "kit-torch"
+version = "0.1.0"
+source = { git = "https://github.com/handl-lang/kit-torch.git?rev=v0.1.1#fa6469412b7cc287bb3fc6a9deb59c84d1a60a41" }
+dependencies = [
+    { name = "mlopt-core" },
+    { name = "mlopt-dtypes" },
+    { name = "mlopt-orchestrator" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "torch" },
 ]
 
 [[package]]
@@ -584,19 +597,6 @@ version = "0.1.0.dev0"
 source = { git = "https://github.com/handl-lang/eqsat.git?subdirectory=packages%2Fmlopt-orchestrator&tag=v0.1.10#4e2dc877fc0b2744bc33a1d7ff6d4a7535b9c182" }
 dependencies = [
     { name = "mlopt-core" },
-]
-
-[[package]]
-name = "mlopt-torch"
-version = "0.1.0.dev0"
-source = { git = "https://github.com/handl-lang/graphopt.git?subdirectory=packages%2Fmlopt-torch&rev=v0.1.21#389e3f22e1b302a3c89bf748f6ee201e477ae32f" }
-dependencies = [
-    { name = "mlopt-core" },
-    { name = "mlopt-dtypes" },
-    { name = "mlopt-orchestrator" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "torch" },
 ]
 
 [[package]]
