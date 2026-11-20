@@ -1,8 +1,6 @@
 # kit-cuda
 
-The CUDA-graph delivery mechanism for the mlopt game, split out of
-`handl-lang/graphopt` (`packages/mlopt-cuda`) in P3 Step D-1c and
-renamed `mlopt-cuda` → `kit-cuda` / `mlopt_cuda` → `kit_cuda`.
+The CUDA-graph delivery mechanism for the mlopt game.
 
 `kit_cuda.CudaGraphRunner` is the `mlopt_core.ports.Runner` that
 captures a delivered module into a `torch.cuda.CUDAGraph` — collapsing
@@ -16,7 +14,7 @@ It sits at the **top** of the torch stack: it depends on
 and `torch` — never on `mlopt_orchestrator` (the `Runner` protocol is
 duck-typed), the game layer, or any sibling backend.
 
-## Install
+## Develop
 
 ```sh
 uv sync --group dev
@@ -37,9 +35,12 @@ deliberately carries no `kit-torch` source entry.
 ## Verify
 
 ```sh
-.venv/bin/python -m pytest tests/ -q
-.venv/bin/ruff check src
-.venv/bin/ty check
-.venv/bin/lint-imports
-coverage run -m pytest tests/ -q && coverage report -m   # floor in pyproject
+uv run scripts/gate.py --coverage   # pytest → ruff → ty → lint-imports → coverage floor
 ```
+
+`scripts/gate.py` is a stdlib runner over the dev toolchain; `ci.sh`
+is the gate entry.
+
+## License
+
+MIT.
