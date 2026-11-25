@@ -37,7 +37,7 @@ substrate.
   `kit_host_tensor`/`mlopt_host_tensor`, `kit_carriers`, `kit_onnx`).
 - Substrate deps: `mlopt-core` (handl-lang/eqsat,
   `packages/mlopt-core` subdir, tag-pinned); `kit-torch`
-  (handl-lang/graphopt, `packages/kit-torch` subdir, resolved by
+  (handl-lang/kit-torch, resolved by
   the *consumer's* `[tool.uv.sources]` — this repo deliberately has
   no `kit-torch` source entry; its own dev env binds it via a
   dev-group direct-URL, the kit-carriers dep-source lesson).
