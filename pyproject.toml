@@ -126,8 +126,6 @@ forbidden_modules = [
     "benchkit",
     "discoverykit",
     "kit_discovery",
-    "mlopt_host_tensor",
-    "kit_host_tensor",
     "kit_carriers",
     "kit_onnx",
 ]

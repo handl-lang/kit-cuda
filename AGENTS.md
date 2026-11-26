@@ -34,7 +34,7 @@ substrate.
   duck-typed (`apply(module, example_input, stats)`); the
   import-linter `forbidden` contract enforces the upward edges
   (orchestrator, gamekit/benchkit/discoverykit, `kit_discovery`,
-  `kit_host_tensor`/`mlopt_host_tensor`, `kit_carriers`, `kit_onnx`).
+  `kit_carriers`, `kit_onnx`).
 - Substrate deps: `mlopt-core` (handl-lang/eqsat,
   `packages/mlopt-core` subdir, tag-pinned); `kit-torch`
   (handl-lang/kit-torch, resolved by
